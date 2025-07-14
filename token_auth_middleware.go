@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -64,13 +63,18 @@ token from cookies:
 		}
 
 		userId := token.Claims.(jwt.MapClaims)["userId"]
-		
-		if err := db.Where("id = ?", userId).Error; errors.Is(err, gorm.ErrRecordNotFound){
-			if err != nil || !token.Valid{
+		var user User
+		if err := db.Where("id = ?", userId).First(&user).Error; err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-					"error": "unable to authorize, user assocciated with id not found",
-				})
-			}
+				"error": "unable to authorize, user associated with id not found",
+			})
+		}
+
+		if user.Id == 0 {
+			log.Error("User not found for ID: ", userId)
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "unable to authorize, user associated with id not found",
+			})
 		}
 		c.Locals("userId", userId)
 		return c.Next()

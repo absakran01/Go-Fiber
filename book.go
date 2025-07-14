@@ -101,7 +101,7 @@ func BookHandlers(router fiber.Router, db *gorm.DB){
 
 		if len(*books) == 0{
 			// handle book not found 
-			return c.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "could not Find any books under user id",
 			})
 		}
@@ -110,10 +110,97 @@ func BookHandlers(router fiber.Router, db *gorm.DB){
 
 		return c.Status(fiber.StatusOK).JSON(books)
 	})
+
+
 	router.Put("/:id", func(c *fiber.Ctx) error {
-		return c.SendString("put by id")
+		id, err := c.ParamsInt("id") 
+		bookFromClient := new(Book)
+
+
+		if err := c.BodyParser(bookFromClient); err != nil {
+			//handle book json parsing error
+			return c.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+
+		if id == 0 || err != nil{
+			// handle id error
+			return c.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"error": "book id is invalid",
+			})
+		}
+
+		userId := int(c.Locals("userId").(float64))
+		log.Println("User ID from context:", userId)
+
+		if userId == 0{
+			// handle user id error
+			return c.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"error": "user id is invalid",
+			})
+		}
+		bookFromClient.Id = id
+
+
+
+		if bookFromClient.Id == 0{
+			// handle book not found 
+			return c.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"error": "could not Find book",
+			})
+		}
+
+		if err := db.Save(&bookFromClient).Error; err != nil {
+			// handle db error
+			return c.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+
+		return c.Status(fiber.StatusOK).JSON(bookFromClient)
 	})
+
+
 	router.Delete("/:id", func(c *fiber.Ctx) error {
-		return c.SendString("dlt by id")
+		id, err := c.ParamsInt("id") 
+
+		if id == 0 || err != nil{
+			// handle id error
+			return c.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"error": "book id is invalid",
+			})
+		}
+
+		userId := int(c.Locals("userId").(float64))
+		log.Println("User ID from context:", userId)
+
+		if userId == 0{
+			// handle user id error
+			return c.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"error": "user id is invalid",
+			})
+		}
+
+
+		book := new(Book)
+		db.Where("id = ? AND user_id = ?", id, userId).First(book)
+
+		if book.Id == 0{
+			// handle book not found 
+			return c.Status(fiber.ErrBadRequest.Code).JSON(fiber.Map{
+				"error": "could not Find book",
+			})
+		}
+
+		if err := db.Delete(&book).Error; err != nil{
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "could not Delete book",
+			})
+		}
+
+
+
+		return c.Status(fiber.StatusNoContent).JSON(book)
 	})
-}
+} 
